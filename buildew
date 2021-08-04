@@ -1,0 +1,110 @@
+#!/bin/bash
+
+PYTHON=python3.9
+# CHECK PYTHON 3
+if command -v $PYTHON &>/dev/null; then
+    echo Python3 available
+else
+    echo Python3 not available, please install it or add to the PATH variable
+    exit 1
+fi
+
+# CHECK PIP
+if command -v $PYTHON -m pip &>/dev/null; then
+    echo Pip available
+else
+    echo Pip not available, please install it or add to the PATH variable
+    exit 1
+fi
+
+# CHECK VIRTUALENV COMMAND
+if command -v $PYTHON -m venv &>/dev/null; then
+    echo Venv command available
+else
+    echo Venv not available, please install it [For example: python3 -m pip install python-venv]
+    exit 1
+fi
+
+
+COMMAND=$1
+PYTHON_VERSION=3.9
+while [[ "$#" -gt 0 ]]; do
+    case $1 in
+    --python-version)
+        PYTHON_VERSION="$2"
+        shift
+        shift
+        ;;
+    *)
+        COMMAND=$1
+        shift
+        break
+        ;;
+    esac
+    shift
+done
+
+function exit_with_message_and_rm_venv {
+    rm -fr .venv
+    echo " "
+    echo $1
+    exit 1
+}
+
+function reinstall_dependencies {
+    .venv/bin/pip3 install -r requirements.txt
+    .venv/bin/pip3 install -r requirements-tests.txt
+    .venv/bin/pip3 install -r requirements-dev.txt
+}
+
+# CHECK VENV NOT EXISTS
+if [ ! -d .venv ]; then
+
+    $PYTHON -m venv .venv || exit_with_message_and_rm_venv "Please install $PYTHON-venv package"
+    if [ ! -d .pip ]; then
+        mkdir .pip
+        curl https://bootstrap.pypa.io/get-pip.py -o .pip/get-pip.py || exit_with_message_and_rm_venv "Error during pip downloading"
+    fi
+    .venv/bin/python3 .pip/get-pip.py || exit_with_message_and_rm_venv "Error during pip installation"
+    reinstall_dependencies
+fi
+
+if [ -f '.buildew' ]; then
+    echo Use .buildew file to read sensitive information
+    while IPS='=' read -r key value; do
+        eval ${key}
+    done <'.buildew'
+else
+    # REGENERATE SENSITIVE INFO FROM TEMPLATE
+    cat >'.buildew' <<EOF
+service_account=<email for service account from google cloud console>
+key_file_path=<generated RSA private key from google cloud console>
+EOF
+fi
+
+
+echo EXECUTE
+echo =========== $COMMAND
+echo $COMMAND ===========
+echo COMMAND
+
+
+if [ "x$COMMAND" == "xtests" ]; then
+    echo 'Run tests'
+    .venv/bin/python3 -m unittest discover -s ./tests -p '*_test.py' -t . -b --locals -v
+fi
+
+if [ "x$COMMAND" == "xredeps" ]; then
+    echo "Reinstall dependencies"
+    reinstall_dependencies
+fi
+
+if [ "x$COMMAND" == "xclean" ]; then
+    echo "Clean temporary folders"
+    find . -name __pycache__ | xargs rm -fr
+fi
+
+AVAILABLE_COMMANDS="tests clean redeps"
+echo ''
+[[ $AVAILABLE_COMMANDS =~ (^| )$COMMAND($| ) ]] && echo 'Ok' || echo 'Unknown command: ' "$COMMAND" && echo 'Available commands are: ' "$AVAILABLE_COMMANDS"
+

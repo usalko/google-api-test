@@ -1,0 +1,13 @@
+# Python cache
+__pycache__
+
+# Virtual environment
+.venv
+.pip
+
+# IDE
+.vscode
+
+# Sensitive info
+.private
+.buildew

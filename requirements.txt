@@ -1,0 +1,4 @@
+# AIOHTTP
+aiohttp
+# Cryptography
+PyCryptodome
